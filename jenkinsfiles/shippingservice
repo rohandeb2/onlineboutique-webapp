@@ -1,0 +1,82 @@
+pipeline {
+    agent any 
+
+    stages {
+        stage('Cleaning Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Checkout from Git') {
+            steps {
+                git branch: 'master', url: 'https://github.com/arumullayaswanth/Microservices-E-Commerce-eks-project.git'
+            }
+        }
+        stage("Docker Image Build") {
+            steps {
+                script {
+                    dir('src/shippingservice') {
+                        sh 'docker system prune -f'
+                        sh 'docker container prune -f'
+                        sh 'docker build -t shippingservice .'
+                    }
+                }
+            }
+        }
+        stage("ECR Image Pushing") {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    sh '''
+                        echo "🔐 Logging into AWS ECR..."
+                        aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 889501007925.dkr.ecr.us-west-2.amazonaws.com
+
+                        echo "🏷️ Tagging image..."
+                        docker tag shippingservice:latest 889501007925.dkr.ecr.us-west-2.amazonaws.com/shippingservice:latest
+
+                        echo "📤 Pushing image to ECR..."
+                        docker push 889501007925.dkr.ecr.us-west-2.amazonaws.com/shippingservice:latest
+                    '''
+                }
+            }
+        }
+       stage('Update Deployment file') {
+            environment {
+                GIT_REPO_NAME = "Microservices-E-Commerce-eks-project"
+                GIT_EMAIL = "ayushmanndeb8@gmail.com"
+                GIT_USER_NAME = "rohandeb2"
+                IMAGE_NAME = "shippingservice"
+                REPO_URL = "889501007925.dkr.ecr.us-west-2.amazonaws.com/shippingservice"
+                YAML_FILE = "shippingservice.yaml"
+            }
+            steps {
+                dir('kubernetes-files') {
+                    withCredentials([string(credentialsId: 'git-cred', variable: 'GIT_TOKEN')]) {
+                        sh '''
+                            set -e
+                            git config user.email "${GIT_EMAIL}"
+                            git config user.name "${GIT_USER_NAME}"
+
+                            echo "🔄 Pulling latest changes..."
+                            git fetch origin master
+                            git pull origin master --rebase || echo "No updates from remote"
+
+                            echo "🔧 Updating deployment file..."
+                            if [ -f "${YAML_FILE}" ]; then
+                                sed -i "s#image:.*#image: ${REPO_URL}:${BUILD_NUMBER}#g" ${YAML_FILE}
+                            else
+                                echo "❌ ERROR: ${YAML_FILE} not found!"
+                                exit 1
+                            fi
+
+                            git add ${YAML_FILE}
+                            git commit -m "Update ${IMAGE_NAME} image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+
+                            echo "🚀 Pushing updated file to GitHub..."
+                            git push https://${GIT_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:master || echo "⚠️ Push skipped (no new commits)"
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}

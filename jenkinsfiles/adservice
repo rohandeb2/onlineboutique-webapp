@@ -1,0 +1,84 @@
+pipeline {
+    agent any 
+
+        environment {
+        AWS_REGION = "us-west-2"
+        AWS_ACCOUNT_ID = "889501007925"
+        IMAGE_NAME = "emailservice"
+        REPO_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}"
+        GIT_REPO_NAME = "Microservices-E-Commerce-eks-project"
+        GIT_EMAIL = "ayushmanndeb8@gmail.com"
+        GIT_USER_NAME = "rohandeb2"
+        YAML_FILE = "emailservice.yaml"
+    }
+
+    stages {
+        stage('Cleaning Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout from Git') {
+            steps {
+                git branch: 'master', url: 'https://github.com/rohandeb2/Microservices-E-Commerce-eks-project.git'
+            }
+        }
+
+        stage("Docker Image Build") {
+            steps {
+                script {
+                    dir('src/adservice') {
+                        sh 'docker system prune -f'
+                        sh 'docker container prune -f'
+                        sh 'docker build -t adservice .'
+                    }
+                }
+            }
+        }
+
+        stage('Login to ECR and Push Image') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    sh '''
+                        echo "🔐 Logging into AWS ECR..."
+                       aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 889501007925.dkr.ecr.us-west-2.amazonaws.com
+
+                        echo "🏷️ Tagging image..."
+                       docker tag adservice:latest 889501007925.dkr.ecr.us-west-2.amazonaws.com/adservice:latest
+
+                        echo "📤 Pushing image to ECR..."
+                        docker push 889501007925.dkr.ecr.us-west-2.amazonaws.com/adservice:latest
+                    '''
+                }
+            }
+        }
+
+       stage('Update Deployment File and Push to GitHub') {
+    steps {
+        dir('kubernetes-files') {
+            withCredentials([string(credentialsId: 'git-cred', variable: 'GIT_TOKEN')]) {
+                sh '''
+                    git config user.email "${GIT_EMAIL}"
+                    git config user.name "${GIT_USER_NAME}"
+
+                    # Pull latest changes first to avoid push rejection
+                    git fetch origin master
+                    git rebase origin/master || git merge origin/master
+
+                    # Update image version
+                    sed -i "s#image:.*#image: ${REPO_URL}:${BUILD_NUMBER}#g" ${YAML_FILE}
+
+                    git add ${YAML_FILE}
+                    git commit -m "Update ${IMAGE_NAME} image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+
+                    # Push updated manifest
+                    git push https://${GIT_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:master
+                '''
+            }
+        }
+    }
+}
+
+    }
+}
