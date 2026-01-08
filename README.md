@@ -3,6 +3,9 @@
 A production-ready microservices-based e-commerce application deployed on Amazon EKS (Elastic Kubernetes Service) with complete CI/CD automation using Jenkins and ArgoCD.
 
 ## 🏗️ Architecture Overview
+<div align="center">
+  <img src="src/images/1.png" >
+</div>
 
 This project implements a cloud-native microservices architecture featuring:
 
