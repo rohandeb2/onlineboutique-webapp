@@ -1,1 +1,34 @@
+# Binaries and object files
+bin/
+obj/
+
+# Dependencies
 vendor/
+
+# Tests and documentation
+*_test.go
+
+# Git
+.git
+.gitignore
+
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+README.md
+
+.terraform/
+*.tfstate*
+.env

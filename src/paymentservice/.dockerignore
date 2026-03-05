@@ -1,1 +1,37 @@
-node_modules
+# Git
+.git
+.gitignore
+
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+README.md
+
+.terraform/
+*.tfstate*
+.env
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build directories
+dist/
+.next/
