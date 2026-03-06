@@ -1,9 +1,8 @@
-# --- Stage 1: Build Stage ---
 FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
-# Copy Gradle wrapper and set permissions
-COPY gradlew . 
+# Copy wrapper and set permissions
+COPY gradlew .
 COPY gradle/ gradle/
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 
@@ -18,20 +17,22 @@ RUN ./gradlew installDist --no-daemon
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copy built application
+# Copy the contents of the hipstershop install folder to /app
 COPY --from=builder /app/build/install/hipstershop /app/
 
-# Create non-root user
+# Senior Tip: Let's verify the script name. 
+# In this specific repo, the script is usually 'adservice' (lowercase)
+# but the folder was 'hipstershop'. 
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-# JVM tuning for container
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
-# Disable profiler for EKS/Fargate
-ENV DISABLE_PROFILER=1
+# Environment variables for Java
 
-# Expose port
 EXPOSE 9555
 
-# Use correct lowercase entrypoint
-ENTRYPOINT ["/app/bin/adservice"]
+# This must match the filename inside /app/bin/
+ENTRYPOINT ["/app/bin/AdService"]
+
+
+
