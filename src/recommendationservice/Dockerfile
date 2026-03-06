@@ -1,45 +1,47 @@
-# Copyright 2020 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Stage 1: Build Stage
+FROM python:3.10.8-slim as builder
 
-FROM python:3.10.8-slim@sha256:abf96998af340975c26177b900c10cfb40716c985325303c063736f0f5cf3171 as base
-
-FROM base as builder
-
+# Install build-essential tools only in the builder stage
 RUN apt-get -qq update \
     && apt-get install -y --no-install-recommends \
         wget g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# get packages
+WORKDIR /app
+
+# Optimization: Copy requirements first to leverage Docker layer caching
 COPY requirements.txt .
-RUN pip install -r requirements.txt
 
-FROM base
-# Enable unbuffered logging
-ENV PYTHONUNBUFFERED=1
+# Install dependencies to a specific prefix to keep the final image clean
+RUN pip install --no-cache-dir --prefix="/install" -r requirements.txt
 
-# get packages
-WORKDIR /recommendationservice
+# Stage 2: Final Hardened Runtime
+FROM python:3.10.8-slim
 
-# Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.10/ /usr/local/lib/python3.10/
+# Industry Standard: Unbuffered logging and clean bytecode
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8080
 
-# Add the application
+WORKDIR /app
+
+# Copy only the installed packages from the builder stage
+# Using --from=builder /install is cleaner than copying specific site-package paths
+COPY --from=builder /install /usr/local
+
+# Add application code
 COPY . .
 
-# set listen port
-ENV PORT "8080"
+# Security: Create a dedicated non-root user
+# Production EKS clusters should never run containers as root
+# Create a system group and user
+RUN addgroup --system --gid 1001 appuser && \
+    adduser --system --uid 1001 --gid 1001 appuser
+
+# Switch to the new user
+USER 1001
+
 EXPOSE 8080
 
+# Use the full path for the Entrypoint
 ENTRYPOINT ["python", "recommendation_server.py"]

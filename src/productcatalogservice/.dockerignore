@@ -1,34 +1,45 @@
-# Binaries and object files
+# ==========================================
+# 1. Go Specific (Critical)
+# ==========================================
+# Exclude local compiled binaries and object files
 bin/
 obj/
-
-# Dependencies
+# Exclude vendor directory to ensure fresh builds from go.mod/go.sum
 vendor/
-
-# Tests and documentation
+# Tests are for CI, not for the production image
 *_test.go
 
-# Git
+# ==========================================
+# 2. Version Control & Documentation
+# ==========================================
 .git
 .gitignore
+.dockerignore
+*.md
+LICENSE
 
-*.log
-logs/
-
-# Environment files
+# ==========================================
+# 3. Environment & Security (CRITICAL)
+# ==========================================
+# Prevent leaking local secrets into Amazon ECR
 .env
 .env.*
+*.pem
+*.key
 
-# IDE files
+# ==========================================
+# 4. IDE & OS Junk
+# ==========================================
 .vscode/
 .idea/
-
-# OS junk
 .DS_Store
 Thumbs.db
 
-README.md
-
+# ==========================================
+# 5. Infrastructure & Build Artifacts
+# ==========================================
 .terraform/
 *.tfstate*
-.env
+kubernetes-files/
+# Exclude the proto generation script after it runs in CI
+genproto.sh

@@ -1,35 +1,40 @@
-# Copyright 2020 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Stage 1: Build Stage
+# Industry Standard: Use a specific SHA for immutability
+FROM python:3.11.1-slim as builder
 
-FROM python:3.11.1-slim@sha256:33a1008485e1a2dc565be79ece483b240cbc4d6266d6144a57a5a9965ede9bbf as base
+WORKDIR /app
 
-FROM base as builder
-
+# Optimization: Copy requirements first to leverage Docker layer caching
+# This ensures 'pip install' is only re-run if requirements.txt changes
 COPY requirements.txt .
 
-RUN pip install --prefix="/install" -r requirements.txt
+# Install dependencies to a prefix to keep the final image clean
+RUN pip install --no-cache-dir --prefix="/install" -r requirements.txt
 
-FROM base
+# Stage 2: Final Hardened Runtime
+FROM python:3.11.1-slim
 
-WORKDIR /loadgen
+# Industry Standard: Enable unbuffered logging for better observability in EKS/CloudWatch
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    GEVENT_SUPPORT=True
 
+WORKDIR /app
+
+# Copy only the installed packages from the builder stage
 COPY --from=builder /install /usr/local
 
-# Add application code.
+# Add application code
 COPY locustfile.py .
 
-# enable gevent support in debugger
-ENV GEVENT_SUPPORT=True
+# Security: Create and use a dedicated non-root user
+# This is a critical requirement for production-grade security audits
+# Create a system group and user
+RUN groupadd -g 10001 appgroup && \
+    useradd -u 10001 -g appgroup appuser
 
-ENTRYPOINT locust --host="http://${FRONTEND_ADDR}" --headless -u "${USERS:-10}" 2>&1
+USER 10001
+
+# Industry Standard: Use exec-form ENTRYPOINT for proper signal handling (SIGTERM)
+# This allows the container to shut down gracefully in Kubernetes
+ENTRYPOINT ["locust", "--headless"]

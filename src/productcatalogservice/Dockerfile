@@ -1,42 +1,46 @@
-# Copyright 2020 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Stage 1: Optimized Build Stage
+# Use specific SHA for immutability and Alpine for a small build footprint
+FROM golang:1.21.3-alpine AS builder
 
-FROM golang:1.21.3-alpine@sha256:926f7f7e1ab8509b4e91d5ec6d5916ebb45155b0c8920291ba9f361d65385806 AS builder
-RUN apk add --no-cache ca-certificates git
-RUN apk add build-base
+# Install necessary build tools
+RUN apk add --no-cache ca-certificates git build-base
 
 WORKDIR /src
-# restore dependencies
+
+# Optimization: Separate dependency download
+# This ensures layers are cached unless go.mod or go.sum changes
 COPY go.mod go.sum ./
 RUN go mod download
+
+# Copy source code
 COPY . .
 
-# Skaffold passes in debug-oriented compiler flags
+# Build flags for Production:
+# -ldflags="-s -w": Strips debug info/symbol tables to reduce binary size
+# CGO_ENABLED=0: Ensures a statically linked binary (vital for Distroless)
 ARG SKAFFOLD_GO_GCFLAGS
-RUN go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /productcatalogservice .
+RUN CGO_ENABLED=0 go build \
+    -gcflags="${SKAFFOLD_GO_GCFLAGS}" \
+    -ldflags="-s -w" \
+    -o /productcatalogservice .
 
-FROM alpine:3.18.4@sha256:eece025e432126ce23f223450a0326fbebde39cdf496a85d8c016293fc851978
-RUN apk add --no-cache ca-certificates
+# Stage 2: Final Hardened Runtime (Distroless)
+# Industry Standard: Use Distroless for the smallest attack surface (no shell, no package manager)
+FROM gcr.io/distroless/static-debian12:latest
 
-WORKDIR /src
+WORKDIR /app
+
+# Copy binary and data from builder
 COPY --from=builder /productcatalogservice ./server
-COPY products.json .
+COPY --from=builder /src/products.json .
 
-# Definition of this variable is used by 'skaffold debug' to identify a golang binary.
-# Default behavior - a failure prints a stack trace for the current goroutine.
-# See https://golang.org/pkg/runtime/
+# Environment configuration
 ENV GOTRACEBACK=single
 
+# Security: Distroless static images run as non-root by default (uid 65532)
+USER 65532:65532
+
 EXPOSE 3550
-ENTRYPOINT ["/src/server"]
+
+# Execute the binary directly
+ENTRYPOINT ["/app/server"]

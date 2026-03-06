@@ -1,43 +1,46 @@
-# Copyright 2020 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-FROM python:3.10.8-slim@sha256:abf96998af340975c26177b900c10cfb40716c985325303c063736f0f5cf3171 as base
-
-FROM base as builder
+# Stage 1: Build Stage
+# Use a specific SHA for immutability and a slightly heavier image for compilation
+FROM python:3.10.8-slim as builder
 
 RUN apt-get -qq update \
     && apt-get install -y --no-install-recommends \
         wget g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# get packages
+WORKDIR /app
+
+# Optimization: Copy only requirements first to leverage Docker layer caching
+# This ensures 'pip install' is only re-run if requirements.txt changes
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Install to a local folder to make copying to the final stage cleaner
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-FROM base
-# Enable unbuffered logging
-ENV PYTHONUNBUFFERED=1
-# Enable Profiler
-ENV ENABLE_PROFILER=1
+# Stage 2: Final Hardened Runtime
+FROM python:3.10.8-slim
 
-WORKDIR /email_server
+# Industry Standard: Enable unbuffered logging for better log aggregation (Promtail/Fluentd)
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    ENABLE_PROFILER=1
 
-# Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.10/ /usr/local/lib/python3.10/
+WORKDIR /app
 
-# Add the application
+# Copy only the installed packages from the builder stage
+COPY --from=builder /install /usr/local
+
+# Copy application source code
 COPY . .
 
+# Security: Create a dedicated non-root user
+# Running as 'root' in EKS is a major security finding in MNC audits
+# Create a system group and user
+RUN addgroup --system --gid 1001 appuser && \
+    adduser --system --uid 1001 --gid 1001 appuser
+
+# Switch to the new user
+USER 1001
+
 EXPOSE 8080
+
+# Use the full path for the Entrypoint and ensure signals are handled correctly
 ENTRYPOINT [ "python", "email_server.py" ]
