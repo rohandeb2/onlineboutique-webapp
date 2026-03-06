@@ -2,15 +2,20 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS builder
 WORKDIR /app
 
+# grpc.tools ships a glibc-linked `protoc`; Alpine needs compatibility libs.
+RUN apk add --no-cache libc6-compat gcompat
+
 # Senior Tip: Cache dependencies separately
-COPY src/cartservice.csproj .
-RUN dotnet restore -r linux-musl-x64
+COPY cartservice.sln .
+COPY src/cartservice.csproj src/
+COPY tests/cartservice.tests.csproj tests/
+RUN dotnet restore cartservice.sln -r linux-musl-x64
 
 COPY . .
 
 # --- Stage 2: Publish ---
 # We create a self-contained binary for the specific Alpine architecture
-RUN dotnet publish -c Release \
+RUN dotnet publish src/cartservice.csproj -c Release \
     -o /out \
     --no-restore \
     --runtime linux-musl-x64 \
