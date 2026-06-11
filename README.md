@@ -67,7 +67,7 @@ The application consists of the following microservices:
 8. **loadgenerator** - Simulates user traffic
 9. **currencyservice** - Currency conversion
 10. **shippingservice** - Shipping calculations
-11. **adservice** - Advertisement management
+11. **adservice** - Advertisement management 
 
 ## 🚀 Prerequisites
 
