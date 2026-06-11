@@ -5,34 +5,35 @@ pipeline {
         choice(
             name: 'ACTION',
             choices: ['apply', 'destroy'],
-            description: '🔧 Select the Terraform action to perform'
+            description: 'Select the Terraform action'
         )
     }
 
     environment {
-        AWS_DEFAULT_REGION = 'us-west-2' // Change as per your AWS region
+        AWS_DEFAULT_REGION = 'us-west-2'
     }
 
     stages {
 
-        stage('Checkout from Git') {
+        stage('Checkout') {
             steps {
-                echo 'Checking out Git repository...'
+                echo 'Checking repository'
             }
         }
 
-        stage('Terraform version') {
+        stage('Terraform Version') {
             steps {
                 sh 'terraform --version'
             }
         }
 
-        stage('Terraform init') {
+        stage('Terraform Init') {
             steps {
                 withCredentials([
                     string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
+
                     dir('eks-terraform') {
                         sh 'terraform init --reconfigure'
                     }
@@ -40,7 +41,7 @@ pipeline {
             }
         }
 
-        stage('Terraform validate') {
+        stage('Validate') {
             steps {
                 dir('eks-terraform') {
                     sh 'terraform validate'
@@ -48,12 +49,13 @@ pipeline {
             }
         }
 
-        stage('Terraform plan') {
+        stage('Plan') {
             steps {
                 withCredentials([
                     string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
+
                     dir('eks-terraform') {
                         sh 'terraform plan'
                     }
@@ -61,15 +63,18 @@ pipeline {
             }
         }
 
-        stage('Terraform apply') {
+
+        stage('Apply') {
             when {
                 expression { params.ACTION == 'apply' }
             }
+
             steps {
                 withCredentials([
                     string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
+
                     dir('eks-terraform') {
                         sh 'terraform apply -auto-approve'
                     }
@@ -77,20 +82,24 @@ pipeline {
             }
         }
 
-        stage('Terraform destroy') {
+        stage('Destroy') {
+
             when {
                 expression { params.ACTION == 'destroy' }
             }
+
             steps {
                 withCredentials([
                     string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
+
                     dir('eks-terraform') {
                         sh 'terraform destroy -auto-approve'
                     }
                 }
             }
         }
+
     }
 }

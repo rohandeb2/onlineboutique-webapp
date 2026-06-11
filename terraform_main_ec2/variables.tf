@@ -29,7 +29,6 @@ variable "subnet-name2" {
   default = "Public-subnet2"
 }
 
-# Private subnet name variables
 variable "private_subnet_name1" {
   description = "Private Subnet 1 Name"
   type = string

@@ -6,7 +6,7 @@ pipeline {
         AWS_ACCOUNT_ID = "889501007925"
         IMAGE_NAME = "emailservice"
         REPO_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}"
-        GIT_REPO_NAME = "Microservices-E-Commerce-eks-project"
+        GIT_REPO_NAME = "onlineboutique-webapp"
         GIT_EMAIL = "ayushmanndeb8@gmail.com"
         GIT_USER_NAME = "rohandeb2"
         YAML_FILE = "emailservice.yaml"
@@ -21,7 +21,7 @@ pipeline {
 
         stage('Checkout from Git') {
             steps {
-                git branch: 'master', url: 'https://github.com/rohandeb2/Microservices-E-Commerce-eks-project.git'
+                git branch: 'master', url: 'https://github.com/rohandeb2/onlineboutique-webapp.git'
             }
         }
 
@@ -41,13 +41,13 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     sh '''
-                        echo "🔐 Logging into AWS ECR..."
+                        echo "Logging into AWS ECR..."
                        aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 889501007925.dkr.ecr.us-west-2.amazonaws.com
 
-                        echo "🏷️ Tagging image..."
+                        echo "Tagging image..."
                        docker tag adservice:latest 889501007925.dkr.ecr.us-west-2.amazonaws.com/adservice:latest
 
-                        echo "📤 Pushing image to ECR..."
+                        echo "Pushing image to ECR..."
                         docker push 889501007925.dkr.ecr.us-west-2.amazonaws.com/adservice:latest
                     '''
                 }

@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # --- INFRASTRUCTURE COMPONENT ---
   redis-cart:
     image: "redis:alpine"
     container_name: redis-cart
@@ -14,8 +13,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # --- CORE SERVICES ---
   frontend:
     build:
       context: ./src/frontend
@@ -124,7 +121,6 @@ services:
     networks:
       - boutique-network
 
-  # --- TOOLS (Only runs when requested) ---
   loadgenerator:
     build: ./src/loadgenerator
     environment:

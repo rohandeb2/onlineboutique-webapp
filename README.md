@@ -96,8 +96,8 @@ Before you begin, ensure you have the following installed:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/rohandeb2/onlineboutique-webapp.git
-cd Microservices-E-Commerce-eks-project
+git clone https://github.com/rohandeb2/onlineboutique-webapp.git.git
+cd onlineboutique-webapp
 ```
 
 ### Step 2: Configure AWS Credentials
@@ -167,7 +167,7 @@ cat /var/lib/jenkins/secrets/initialAdminPassword
 2. Configure:
    - **Definition**: Pipeline script from SCM
    - **SCM**: Git
-   - **Repository**: `https://github.com/rohandeb2/onlineboutique-webapp.git`
+   - **Repository**: `https://github.com/rohandeb2/onlineboutique-webapp.git.git`
    - **Branch**: `*/master`
    - **Script Path**: `eks-terraform/eks-jenkinsfile`
 3. Build with parameter: `action = apply`
@@ -246,7 +246,7 @@ kubectl create namespace dev
    - **Application Name**: `project`
    - **Project**: `default`
    - **Sync Policy**: `Automatic`
-   - **Repository URL**: `https://github.com/rohandeb2/onlineboutique-webapp.git`
+   - **Repository URL**: `https://github.com/rohandeb2/onlineboutique-webapp.git.git`
    - **Path**: `kubernetes-files`
    - **Cluster URL**: `https://kubernetes.default.svc`
    - **Namespace**: `dev`

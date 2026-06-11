@@ -9,7 +9,7 @@ pipeline {
         }
         stage('Checkout from Git') {
             steps {
-                git branch: 'master', url: 'https://github.com/rohandeb2/Microservices-E-Commerce-eks-project.git'
+                git branch: 'master', url: 'https://github.com/rohandeb2/onlineboutique-webapp.git'
             }
         }
         stage("Docker Image Build") {
@@ -27,21 +27,21 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     sh '''
-                        echo "🔐 Logging into AWS ECR..."
+                        echo "Logging into AWS ECR..."
                         aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 889501007925.dkr.ecr.us-west-2.amazonaws.com
 
-                        echo "🏷️ Tagging image..."
+                        echo "Tagging image..."
                         docker tag currencyservice:latest 889501007925.dkr.ecr.us-west-2.amazonaws.com/currencyservice:latest
 
-                        echo "📤 Pushing image to ECR..."
+                        echo "Pushing image to ECR..."
                         docker push 889501007925.dkr.ecr.us-west-2.amazonaws.com/currencyservice:latest
                     '''
                 }
             }
         }
-stage('Update Deployment file') {
+        stage('Update Deployment file') {
             environment {
-                GIT_REPO_NAME = "Microservices-E-Commerce-eks-project"
+                GIT_REPO_NAME = "onlineboutique-webapp"
                 GIT_EMAIL = "ayushmanndeb8@gmail.com"
                 GIT_USER_NAME = "rohandeb2"
                 IMAGE_NAME = "checkoutservice"
@@ -56,22 +56,22 @@ stage('Update Deployment file') {
                             git config user.email "${GIT_EMAIL}"
                             git config user.name "${GIT_USER_NAME}"
 
-                            echo "🔄 Pulling latest changes..."
+                            echo "Pulling latest changes..."
                             git fetch origin master
                             git pull origin master --rebase || echo "No updates from remote"
 
-                            echo "🔧 Updating deployment file..."
+                            echo "Updating deployment file..."
                             if [ -f "${YAML_FILE}" ]; then
                                 sed -i "s#image:.*#image: ${REPO_URL}:${BUILD_NUMBER}#g" ${YAML_FILE}
                             else
-                                echo "❌ ERROR: ${YAML_FILE} not found!"
+                                echo "ERROR: ${YAML_FILE} not found!"
                                 exit 1
                             fi
 
                             git add ${YAML_FILE}
                             git commit -m "Update ${IMAGE_NAME} image to version ${BUILD_NUMBER}" || echo "No changes to commit"
 
-                            echo "🚀 Pushing updated file to GitHub..."
+                            echo "Pushing updated file to GitHub..."
                             git push https://${GIT_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:master || echo "⚠️ Push skipped (no new commits)"
                         '''
                     }
